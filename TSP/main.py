@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 
 # pytania czy zaczynac od random, czy wyswietlac te wykresy, czemu jest róznica w execution time ,
 # realnie dobry wynik to ile?
+#kilka razy mozna kliknąć
 def read_tsp_file(file_path):
     coordinates = {}
     tsp_name = ""
