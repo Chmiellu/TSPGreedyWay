@@ -82,7 +82,10 @@ if __name__ == '__main__':
     for file_path in files:
         tsp_name, coordinates = read_tsp_file(file_path)
         G = generate_complete_graph(coordinates)
-        start_node = 1
+
+        #start_node = 1
+        start_node = random.choice(list(G.keys()))
+
         tour, tour_cost, execution_time = nearest_neighbor_tsp(G, start_node)
         total_execution_time += execution_time
         print(f'TSP Name: {tsp_name}')
