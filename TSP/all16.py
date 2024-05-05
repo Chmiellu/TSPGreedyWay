@@ -50,24 +50,66 @@ def calculate_tour_cost(G, tour):
     return tour_cost
 
 
-def nearest_neighbor_tsp(G, start_node):
+def nearest_neighbor_partitioned_tsp(G, partitions):
     start_time = time.time()
-    unvisited = list(G.keys())
-    current_node = start_node
-    unvisited.remove(current_node)
-    tour = [current_node]
+    full_tour = []
+    total_cost = 0
 
-    while unvisited:
-        nearest_neighbor = min(unvisited, key=lambda node: G[current_node][node])
-        tour.append(nearest_neighbor)
-        unvisited.remove(nearest_neighbor)
-        current_node = nearest_neighbor
+    for part in partitions:
+        min_x, max_x, min_y, max_y = part
 
-    tour_cost = calculate_tour_cost(G, tour)
+        # Wybierz losowe pierwsze miasto w obrębie aktualnej partycji
+        cities_in_partition = [node for node, coord in coordinates.items() if
+                               min_x <= coord[0] <= max_x and min_y <= coord[1] <= max_y]
+        start_node = random.choice(cities_in_partition)
+
+        tour = [start_node]
+        unvisited = cities_in_partition.copy()
+        unvisited.remove(start_node)
+
+        while unvisited:
+            current_node = tour[-1]
+            nearest_neighbor = min(unvisited,
+                                   key=lambda node: G[current_node][node] if node != current_node else float('inf'))
+            tour.append(nearest_neighbor)
+            unvisited.remove(nearest_neighbor)
+            total_cost += G[current_node][nearest_neighbor]
+
+        # Dodaj powrót do punktu startowego
+        total_cost += G[tour[-1]][tour[0]]
+        tour.append(tour[0])
+
+        # Dodaj trasę z aktualnej partycji do całkowitej trasy
+        full_tour.extend(tour)
+
     end_time = time.time()
     execution_time = end_time - start_time
 
-    return tour, tour_cost, execution_time
+    return full_tour, total_cost, execution_time
+
+
+def partition_space(coordinates):
+    # Znajdź maksymalne i minimalne współrzędne x i y
+    min_x = min(coord[0] for coord in coordinates.values())
+    max_x = max(coord[0] for coord in coordinates.values())
+    min_y = min(coord[1] for coord in coordinates.values())
+    max_y = max(coord[1] for coord in coordinates.values())
+
+    # Oblicz środek przestrzeni
+    mid_x = (min_x + max_x) / 2
+    mid_y = (min_y + max_y) / 2
+
+    # Podziel przestrzeń na 4 części
+    partitions = []
+    for i in range(2):
+        for j in range(2):
+            min_x_part = min_x if i == 0 else mid_x
+            max_x_part = mid_x if i == 0 else max_x
+            min_y_part = min_y if j == 0 else mid_y
+            max_y_part = mid_y if j == 0 else max_y
+            partitions.append((min_x_part, max_x_part, min_y_part, max_y_part))
+
+    return partitions
 
 
 def plot_graph(coordinates, tour, tsp_name):
@@ -83,27 +125,6 @@ def plot_graph(coordinates, tour, tsp_name):
     plt.close()
 
 
-def get_diff_result(problem, total_distance):
-    if problem == 'lin105.tsp':
-        diff = ((total_distance / 14379) - 1) * 100
-        return f"{diff:.2f}%"
-
-    elif problem == 'tsp225.tsp':
-        diff = ((total_distance / 3919) - 1) * 100
-        return f"{diff:.2f}%"
-
-    elif problem == 'pr1002.tsp':
-        diff = ((total_distance / 259045) - 1) * 100
-        return f"{diff:.2f}%"
-
-    elif problem == 'pr2392.tsp':
-        diff = ((total_distance / 378032) - 1) * 100
-        return f"{diff:.2f}%"
-
-    elif problem == 'rl5934.tsp':
-        return "IDK"
-
-
 if __name__ == '__main__':
     total_execution_time = 0
     files = ['files/lin105.tsp', 'files/tsp225.tsp', 'files/pr1002.tsp', 'files/pr2392.tsp', 'files/rl5934.tsp']
@@ -111,16 +132,13 @@ if __name__ == '__main__':
         tsp_name, coordinates = read_tsp_file(file_path)
         G = generate_complete_graph(coordinates)
 
-        #start_node = 1
-        start_node = random.choice(list(G.keys()))
+        partitions = partition_space(coordinates)
 
-        tour, tour_cost, execution_time = nearest_neighbor_tsp(G, start_node)
+        full_tour, tour_cost, execution_time = nearest_neighbor_partitioned_tsp(G, partitions)
         total_execution_time += execution_time
-        diff_result = get_diff_result(os.path.basename(file_path), tour_cost)
         print(f'TSP Name: {tsp_name}')
-        print(f'Optimal tour: {tour}')
+        print(f'Optimal tour: {full_tour}')
         print(f'Tour cost: {tour_cost}')
-        print(f'Difference from optimal: {diff_result}')
         print(f'Execution time: {execution_time} seconds')
-        plot_graph(coordinates, tour, tsp_name)
+        plot_graph(coordinates, full_tour, tsp_name)
     print(f'Total Execution Time: {total_execution_time} seconds')
