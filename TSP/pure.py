@@ -3,20 +3,21 @@ import time
 import math
 import matplotlib.pyplot as plt
 
+
 def read_tsp_file(file_path):
     coordinates = {}
     tsp_name = ""
-    with open(file_path, 'r') as file:
+    with open(file_path, "r") as file:
         lines = file.readlines()
 
     node_coord_section = False
     for line in lines:
-        if line.startswith('NAME'):
-            tsp_name = line.split(':')[1].strip()
-        elif line.startswith('NODE_COORD_SECTION'):
+        if line.startswith("NAME"):
+            tsp_name = line.split(":")[1].strip()
+        elif line.startswith("NODE_COORD_SECTION"):
             node_coord_section = True
             continue
-        elif line.startswith('EOF'):
+        elif line.startswith("EOF"):
             break
         elif node_coord_section:
             node_info = line.strip().split()
@@ -27,8 +28,10 @@ def read_tsp_file(file_path):
 
     return tsp_name, coordinates
 
+
 def euclidean_distance(coord1, coord2):
-    return math.sqrt((coord1[0] - coord2[0])**2 + (coord1[1] - coord2[1])**2)
+    return math.sqrt((coord1[0] - coord2[0]) ** 2 + (coord1[1] - coord2[1]) ** 2)
+
 
 def generate_complete_graph(coordinates):
     G = {}
@@ -40,16 +43,19 @@ def generate_complete_graph(coordinates):
                 G[u][v] = distance
     return G
 
+
 def plot_graph(coordinates, tour):
     for i in range(len(tour) - 1):
         x1, y1 = coordinates[tour[i]]
         x2, y2 = coordinates[tour[i + 1]]
-        plt.plot([x1, x2], [y1, y2], 'bo-')
+        plt.plot([x1, x2], [y1, y2], "bo-")
     plt.show()
 
+
 def calculate_tour_cost(G, tour):
-    tour_cost = sum(G[tour[i]][tour[i+1]] for i in range(len(tour) - 1))
+    tour_cost = sum(G[tour[i]][tour[i + 1]] for i in range(len(tour) - 1))
     return tour_cost
+
 
 def nearest_neighbor_tsp(G):
     start_time = time.time()
@@ -70,16 +76,17 @@ def nearest_neighbor_tsp(G):
 
     return tour, tour_cost, execution_time
 
-if __name__ == '__main__':
-    tsp_file = 'files/pr1002.tsp'
+
+if __name__ == "__main__":
+    tsp_file = "files/pr1002.tsp"
     tsp_name, coordinates = read_tsp_file(tsp_file)
     G = generate_complete_graph(coordinates)
 
     tour, tour_cost, execution_time = nearest_neighbor_tsp(G)
 
-    print(f'TSP Name: {tsp_name}')
-    print(f'Optimal tour: {tour}')
-    print(f'Tour cost: {tour_cost}')
-    print(f'Execution time: {execution_time} seconds')
+    print(f"TSP Name: {tsp_name}")
+    print(f"Optimal tour: {tour}")
+    print(f"Tour cost: {tour_cost}")
+    print(f"Execution time: {execution_time} seconds")
 
     plot_graph(coordinates, tour)

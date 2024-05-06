@@ -8,17 +8,17 @@ import matplotlib.pyplot as plt
 def read_tsp_file(file_path):
     coordinates = {}
     tsp_name = ""
-    with open(file_path, 'r') as file:
+    with open(file_path, "r") as file:
         lines = file.readlines()
 
     node_coord_section = False
     for line in lines:
-        if line.startswith('NAME'):
-            tsp_name = line.split(':')[1].strip()
-        elif line.startswith('NODE_COORD_SECTION'):
+        if line.startswith("NAME"):
+            tsp_name = line.split(":")[1].strip()
+        elif line.startswith("NODE_COORD_SECTION"):
             node_coord_section = True
             continue
-        elif line.startswith('EOF'):
+        elif line.startswith("EOF"):
             break
         elif node_coord_section:
             node_info = line.strip().split()
@@ -58,19 +58,25 @@ def nearest_neighbor_partitioned_tsp(G, partitions):
     for part in partitions:
         min_x, max_x, min_y, max_y = part
 
-        # Wybierz losowe pierwsze miasto w obrębie aktualnej partycji
-        cities_in_partition = [node for node, coord in coordinates.items() if
-                               min_x <= coord[0] <= max_x and min_y <= coord[1] <= max_y]
-        start_node = random.choice(cities_in_partition)
-
+        cities_in_partition = [
+            node
+            for node, coord in coordinates.items()
+            if min_x <= coord[0] <= max_x and min_y <= coord[1] <= max_y
+        ]
+        # start_node = random.choice(cities_in_partition)
+        start_node = cities_in_partition[0]
         tour = [start_node]
         unvisited = cities_in_partition.copy()
         unvisited.remove(start_node)
 
         while unvisited:
             current_node = tour[-1]
-            nearest_neighbor = min(unvisited,
-                                   key=lambda node: G[current_node][node] if node != current_node else float('inf'))
+            nearest_neighbor = min(
+                unvisited,
+                key=lambda node: (
+                    G[current_node][node] if node != current_node else float("inf")
+                ),
+            )
             tour.append(nearest_neighbor)
             unvisited.remove(nearest_neighbor)
             total_cost += G[current_node][nearest_neighbor]
@@ -89,24 +95,22 @@ def nearest_neighbor_partitioned_tsp(G, partitions):
 
 
 def partition_space(coordinates):
-    # Znajdź maksymalne i minimalne współrzędne x i y
+
     min_x = min(coord[0] for coord in coordinates.values())
     max_x = max(coord[0] for coord in coordinates.values())
     min_y = min(coord[1] for coord in coordinates.values())
     max_y = max(coord[1] for coord in coordinates.values())
 
-    # Oblicz środek przestrzeni
     mid_x = (min_x + max_x) / 2
     mid_y = (min_y + max_y) / 2
 
-    # Podziel przestrzeń na 4 części
     partitions = []
-    for i in range(2):
-        for j in range(2):
-            min_x_part = min_x if i == 0 else mid_x
-            max_x_part = mid_x if i == 0 else max_x
-            min_y_part = min_y if j == 0 else mid_y
-            max_y_part = mid_y if j == 0 else max_y
+    for i in range(4):
+        for j in range(4):
+            min_x_part = min_x + i * ((max_x - min_x) / 4)
+            max_x_part = min_x + (i + 1) * ((max_x - min_x) / 4)
+            min_y_part = min_y + j * ((max_y - min_y) / 4)
+            max_y_part = min_y + (j + 1) * ((max_y - min_y) / 4)
             partitions.append((min_x_part, max_x_part, min_y_part, max_y_part))
 
     return partitions
@@ -115,30 +119,61 @@ def partition_space(coordinates):
 def plot_graph(coordinates, tour, tsp_name):
     x_coords = [coord[0] for coord in coordinates.values()]
     y_coords = [coord[1] for coord in coordinates.values()]
-    plt.scatter(x_coords, y_coords, color='blue', zorder=2)
+    plt.scatter(x_coords, y_coords, color="blue", zorder=2)
     for i in range(len(tour) - 1):
         x1, y1 = coordinates[tour[i]]
         x2, y2 = coordinates[tour[i + 1]]
-        plt.plot([x1, x2], [y1, y2], 'ro-', zorder=1)
+        plt.plot([x1, x2], [y1, y2], "ro-", zorder=1)
     plt.title(tsp_name)
-    plt.savefig(os.path.join('plots', f'{tsp_name}.png'))
+    plt.savefig(os.path.join("plots", f"{tsp_name}.png"))
     plt.close()
 
 
-if __name__ == '__main__':
+def get_diff_result(problem, total_distance):
+    if problem == "lin105.tsp":
+        diff = ((total_distance / 14379) - 1) * 100
+        return f"{diff:.2f}%"
+
+    elif problem == "tsp225.tsp":
+        diff = ((total_distance / 3919) - 1) * 100
+        return f"{diff:.2f}%"
+
+    elif problem == "pr1002.tsp":
+        diff = ((total_distance / 259045) - 1) * 100
+        return f"{diff:.2f}%"
+
+    elif problem == "pr2392.tsp":
+        diff = ((total_distance / 378032) - 1) * 100
+        return f"{diff:.2f}%"
+
+    elif problem == "rl5934.tsp":
+        return "IDK"
+
+
+if __name__ == "__main__":
     total_execution_time = 0
-    files = ['files/lin105.tsp', 'files/tsp225.tsp', 'files/pr1002.tsp', 'files/pr2392.tsp', 'files/rl5934.tsp']
+    files = [
+        "files/lin105.tsp",
+        "files/tsp225.tsp",
+        "files/pr1002.tsp",
+        "files/pr2392.tsp",
+        "files/rl5934.tsp",
+    ]
     for file_path in files:
         tsp_name, coordinates = read_tsp_file(file_path)
         G = generate_complete_graph(coordinates)
 
         partitions = partition_space(coordinates)
 
-        full_tour, tour_cost, execution_time = nearest_neighbor_partitioned_tsp(G, partitions)
+        full_tour, tour_cost, execution_time = nearest_neighbor_partitioned_tsp(
+            G, partitions
+        )
         total_execution_time += execution_time
-        print(f'TSP Name: {tsp_name}')
-        print(f'Optimal tour: {full_tour}')
-        print(f'Tour cost: {tour_cost}')
-        print(f'Execution time: {execution_time} seconds')
+        diff_result = get_diff_result(os.path.basename(file_path), tour_cost)
+        print(f"TSP Name: {tsp_name}")
+        print(f"Optimal tour: {full_tour}")
+        print(f"Tour cost: {tour_cost}")
+        print(f"Difference from optimal: {diff_result}")
+        print(f"Execution time: {execution_time} seconds")
         plot_graph(coordinates, full_tour, tsp_name)
-    print(f'Total Execution Time: {total_execution_time} seconds')
+    print(f"Total Execution Time: {total_execution_time} seconds")

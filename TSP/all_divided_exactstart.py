@@ -50,7 +50,7 @@ def calculate_tour_cost(G, tour):
     return tour_cost
 
 
-def nearest_neighbor_partitioned_tsp(G, partitions, coordinates):
+def nearest_neighbor_partitioned_tsp(G, partitions):
     start_time = time.time()
     full_tour = []
     total_cost = 0
@@ -58,12 +58,14 @@ def nearest_neighbor_partitioned_tsp(G, partitions, coordinates):
     for part in partitions:
         min_x, max_x, min_y, max_y = part
 
+        # Wybierz losowe pierwsze miasto w obrębie aktualnej partycji
         cities_in_partition = [
             node
             for node, coord in coordinates.items()
             if min_x <= coord[0] <= max_x and min_y <= coord[1] <= max_y
         ]
-        start_node = cities_in_partition[0]
+        start_node = cities_in_partition[10]
+
         tour = [start_node]
         unvisited = cities_in_partition.copy()
         unvisited.remove(start_node)
@@ -80,11 +82,12 @@ def nearest_neighbor_partitioned_tsp(G, partitions, coordinates):
             unvisited.remove(nearest_neighbor)
             total_cost += G[current_node][nearest_neighbor]
 
+        # Dodaj powrót do punktu startowego
+        total_cost += G[tour[-1]][tour[0]]
+        tour.append(tour[0])
+
         # Dodaj trasę z aktualnej partycji do całkowitej trasy
         full_tour.extend(tour)
-
-    # Dodaj powrót do punktu startowego
-    full_tour.append(start_node)
 
     end_time = time.time()
     execution_time = end_time - start_time
@@ -93,15 +96,17 @@ def nearest_neighbor_partitioned_tsp(G, partitions, coordinates):
 
 
 def partition_space(coordinates):
-
+    # Znajdź maksymalne i minimalne współrzędne x i y
     min_x = min(coord[0] for coord in coordinates.values())
     max_x = max(coord[0] for coord in coordinates.values())
     min_y = min(coord[1] for coord in coordinates.values())
     max_y = max(coord[1] for coord in coordinates.values())
 
+    # Oblicz środek przestrzeni
     mid_x = (min_x + max_x) / 2
     mid_y = (min_y + max_y) / 2
 
+    # Podziel przestrzeń na 4 części
     partitions = []
     for i in range(2):
         for j in range(2):
@@ -123,9 +128,8 @@ def plot_graph(coordinates, tour, tsp_name):
         x2, y2 = coordinates[tour[i + 1]]
         plt.plot([x1, x2], [y1, y2], "ro-", zorder=1)
     plt.title(tsp_name)
-    plt.show()
-    # plt.savefig(os.path.join('plots', f'{tsp_name}.png'))
-    # plt.close()
+    plt.savefig(os.path.join("plots", f"{tsp_name}.png"))
+    plt.close()
 
 
 def get_diff_result(problem, total_distance):
@@ -166,7 +170,7 @@ if __name__ == "__main__":
         partitions = partition_space(coordinates)
 
         full_tour, tour_cost, execution_time = nearest_neighbor_partitioned_tsp(
-            G, partitions, coordinates
+            G, partitions
         )
         total_execution_time += execution_time
         diff_result = get_diff_result(os.path.basename(file_path), tour_cost)
