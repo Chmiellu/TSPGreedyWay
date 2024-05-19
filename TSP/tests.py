@@ -3,7 +3,6 @@ import math
 import numpy as np
 import os
 
-
 def read_tsp_file(file_path):
     coordinates = {}
     tsp_name = ""
@@ -28,17 +27,40 @@ def read_tsp_file(file_path):
 
     return tsp_name, coordinates
 
-
 def euclidean_distance(coord1, coord2):
     return math.sqrt((coord1[0] - coord2[0]) ** 2 + (coord1[1] - coord2[1]) ** 2)
 
+def calculate_tour_cost(tour, distance_matrix):
+    total_cost = 0
+    num_nodes = len(tour)
+    for i in range(num_nodes - 1):
+        total_cost += distance_matrix[tour[i]][tour[i + 1]]
+    total_cost += distance_matrix[tour[-1]][tour[0]]
+    return total_cost
 
-def nearest_neighbor_partitioned_tsp(coordinates):
+def two_opt(tour, distance_matrix, max_time=50):
+    best = tour
+    improved = True
+    start_time = time.time()
+    while improved and time.time() - start_time < max_time:
+        improved = False
+        for i in range(1, len(tour) - 2):
+            for j in range(i + 1, len(tour)):
+                if j - i == 1:
+                    continue
+                new_tour = tour[:i] + tour[i:j][::-1] + tour[j:]
+                if calculate_tour_cost(new_tour, distance_matrix) < calculate_tour_cost(best, distance_matrix):
+                    best = new_tour
+                    improved = True
+        tour = best
+    return best
+
+def greedy_tsp(coordinates, max_time=60):
     start_time = time.time()
 
-    # Generate distance matrix
     num_nodes = len(coordinates)
     node_to_index = {node_id: idx for idx, node_id in enumerate(coordinates.keys())}
+    index_to_node = {idx: node_id for node_id, idx in node_to_index.items()}
     distance_matrix = np.zeros((num_nodes, num_nodes))
     for node_id1, coord1 in coordinates.items():
         for node_id2, coord2 in coordinates.items():
@@ -46,69 +68,31 @@ def nearest_neighbor_partitioned_tsp(coordinates):
             idx2 = node_to_index[node_id2]
             distance_matrix[idx1][idx2] = euclidean_distance(coord1, coord2)
 
-    # Partition the space
-    min_x = min(coord[0] for coord in coordinates.values())
-    max_x = max(coord[0] for coord in coordinates.values())
-    min_y = min(coord[1] for coord in coordinates.values())
-    max_y = max(coord[1] for coord in coordinates.values())
+    tour = []
+    unvisited = set(range(num_nodes))
 
-    mid_x = (min_x + max_x) / 2
-    mid_y = (min_y + max_y) / 2
-
-    partitions = []
-    for i in range(2):
-        for j in range(2):
-            min_x_part = min_x if i == 0 else mid_x
-            max_x_part = mid_x if i == 0 else max_x
-            min_y_part = min_y if j == 0 else mid_y
-            max_y_part = mid_y if j == 0 else max_y
-            partitions.append((min_x_part, max_x_part, min_y_part, max_y_part))
-
-    # Nearest Neighbor TSP for each partition
-    full_tour = []
-    total_cost = 0
-
-    for part in partitions:
-        min_x, max_x, min_y, max_y = part
-
-        cities_in_partition = [
-            node_id
-            for node_id, coord in coordinates.items()
-            if min_x <= coord[0] <= max_x and min_y <= coord[1] <= max_y
-        ]
-
-        start_node = cities_in_partition[0]
-        tour = [start_node]
-        unvisited = set(cities_in_partition)
-        unvisited.remove(start_node)
-
-        while unvisited:
-            current_node = tour[-1]
-            idx_current_node = node_to_index[current_node]
+    while unvisited and time.time() - start_time < max_time:
+        current_node = unvisited.pop()
+        group_tour = [current_node]
+        group_distance_matrix = distance_matrix[group_tour]
+        while unvisited and time.time() - start_time < max_time:
             nearest_neighbor = min(
-                unvisited,
-                key=lambda node_id: distance_matrix[idx_current_node][
-                    node_to_index[node_id]
-                ],
+                unvisited, key=lambda idx: group_distance_matrix[0][idx]
             )
-            tour.append(nearest_neighbor)
+            group_tour.append(nearest_neighbor)
             unvisited.remove(nearest_neighbor)
-            total_cost += distance_matrix[idx_current_node][
-                node_to_index[nearest_neighbor]
-            ]
+            group_distance_matrix = distance_matrix[group_tour]
+        tour.extend(group_tour)
 
-        full_tour.extend(tour)
+    # Apply 2-opt optimization with limited time
+    tour = two_opt(tour, distance_matrix, max_time=60)
 
-    idx_last_node = node_to_index[full_tour[-1]]
-    idx_first_node = node_to_index[full_tour[0]]
-    total_cost += distance_matrix[idx_last_node][idx_first_node]
-    full_tour.append(full_tour[0])
+    total_cost = calculate_tour_cost(tour, distance_matrix)
 
     end_time = time.time()
     execution_time = end_time - start_time
 
-    return full_tour, total_cost, execution_time
-
+    return [index_to_node[idx] for idx in tour], total_cost, execution_time
 
 def get_diff_result(problem, total_distance):
     optimal_distances = {
@@ -126,12 +110,10 @@ def get_diff_result(problem, total_distance):
     else:
         return "Unknown problem"
 
-
 def process_tsp_file(file_path):
     tsp_name, coordinates = read_tsp_file(file_path)
-    full_tour, tour_cost, execution_time = nearest_neighbor_partitioned_tsp(coordinates)
-    return tsp_name, tour_cost, execution_time
-
+    tour, tour_cost, execution_time = greedy_tsp(coordinates)
+    return tsp_name, tour, tour_cost, execution_time
 
 if __name__ == "__main__":
     total_execution_time = 0
@@ -143,10 +125,11 @@ if __name__ == "__main__":
         "files/rl5934.tsp",
     ]
     for file_path in files:
-        tsp_name, tour_cost, execution_time = process_tsp_file(file_path)
+        tsp_name, tour, tour_cost, execution_time = process_tsp_file(file_path)
         total_execution_time += execution_time
         diff_result = get_diff_result(os.path.basename(file_path), tour_cost)
         print(f"TSP Name: {tsp_name}")
+        print(f"Tour: {tour}")
         print(f"Tour cost: {tour_cost}")
         print(f"Difference from optimal: {diff_result}")
         print(f"Execution time: {execution_time} seconds")

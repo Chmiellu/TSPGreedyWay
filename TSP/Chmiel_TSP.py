@@ -1,7 +1,7 @@
 import time
 import math
 import numpy as np
-
+import os
 
 def read_tsp_file(file_path):
     coordinates = {}
@@ -28,24 +28,14 @@ def read_tsp_file(file_path):
     return tsp_name, coordinates
 
 
-def euclidean_distance(coord1, coord2):
-    return math.sqrt((coord1[0] - coord2[0]) ** 2 + (coord1[1] - coord2[1]) ** 2)
-
-
-def generate_distance_matrix(coordinates):
-    num_nodes = len(coordinates)
-    node_to_index = {node_id: idx for idx, node_id in enumerate(coordinates.keys())}
-    distance_matrix = np.zeros((num_nodes, num_nodes))
-    for node_id1, coord1 in coordinates.items():
-        for node_id2, coord2 in coordinates.items():
-            idx1 = node_to_index[node_id1]
-            idx2 = node_to_index[node_id2]
-            distance_matrix[idx1][idx2] = euclidean_distance(coord1, coord2)
-    return distance_matrix
-
-
-def nearest_neighbor_partitioned_tsp(distance_matrix, partitions, node_to_index):
+def nearest_neighbor_partitioned_tsp(file_path):
     start_time = time.time()
+
+    tsp_name, coordinates = read_tsp_file(file_path)
+    distance_matrix = generate_distance_matrix(coordinates)
+    partitions = partition_space(coordinates)
+    node_to_index = {node_id: idx for idx, node_id in enumerate(coordinates.keys())}
+
     full_tour = []
     total_cost = 0
 
@@ -58,9 +48,7 @@ def nearest_neighbor_partitioned_tsp(distance_matrix, partitions, node_to_index)
             if min_x <= coord[0] <= max_x and min_y <= coord[1] <= max_y
         ]
 
-        start_node = cities_in_partition[
-            0
-        ]
+        start_node = cities_in_partition[0]
         tour = [start_node]
         unvisited = set(cities_in_partition)
         unvisited.remove(start_node)
@@ -89,7 +77,23 @@ def nearest_neighbor_partitioned_tsp(distance_matrix, partitions, node_to_index)
     end_time = time.time()
     execution_time = end_time - start_time
 
-    return full_tour, total_cost, execution_time
+    return tsp_name, full_tour, total_cost, execution_time
+
+
+def euclidean_distance(coord1, coord2):
+    return math.sqrt((coord1[0] - coord2[0]) ** 2 + (coord1[1] - coord2[1]) ** 2)
+
+
+def generate_distance_matrix(coordinates):
+    num_nodes = len(coordinates)
+    node_to_index = {node_id: idx for idx, node_id in enumerate(coordinates.keys())}
+    distance_matrix = np.zeros((num_nodes, num_nodes))
+    for node_id1, coord1 in coordinates.items():
+        for node_id2, coord2 in coordinates.items():
+            idx1 = node_to_index[node_id1]
+            idx2 = node_to_index[node_id2]
+            distance_matrix[idx1][idx2] = euclidean_distance(coord1, coord2)
+    return distance_matrix
 
 
 def partition_space(coordinates):
@@ -113,6 +117,23 @@ def partition_space(coordinates):
     return partitions
 
 
+def get_diff_result(problem, total_distance):
+    optimal_distances = {
+        "lin105.tsp": 14379,
+        "tsp225.tsp": 3919,
+        "pr1002.tsp": 259045,
+        "pr2392.tsp": 378032,
+        "rl5934.tsp": 556045
+    }
+
+    if problem in optimal_distances:
+        optimal_distance = optimal_distances[problem]
+        diff = ((total_distance / optimal_distance) - 1) * 100
+        return f"{diff:.2f}%"
+    else:
+        return "Unknown problem"
+
+
 if __name__ == "__main__":
     total_execution_time = 0
     files = [
@@ -123,15 +144,13 @@ if __name__ == "__main__":
         "files/rl5934.tsp",
     ]
     for file_path in files:
-        tsp_name, coordinates = read_tsp_file(file_path)
-        distance_matrix = generate_distance_matrix(coordinates)
-        partitions = partition_space(coordinates)
-        node_to_index = {node_id: idx for idx, node_id in enumerate(coordinates.keys())}
-        full_tour, tour_cost, execution_time = nearest_neighbor_partitioned_tsp(
-            distance_matrix, partitions, node_to_index
+        tsp_name, full_tour, tour_cost, execution_time = nearest_neighbor_partitioned_tsp(
+            file_path
         )
         total_execution_time += execution_time
+        diff_result = get_diff_result(os.path.basename(file_path), tour_cost)
         print(f"TSP Name: {tsp_name}")
         print(f"Tour cost: {tour_cost}")
+        print(f"Difference from optimal: {diff_result}")
         print(f"Execution time: {execution_time} seconds")
     print(f"Total Execution Time: {total_execution_time} seconds")
