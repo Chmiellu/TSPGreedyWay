@@ -64,7 +64,6 @@ def nearest_neighbor_partitioned_tsp(distance_matrix, partitions, node_to_index)
         tour = [start_node]
         unvisited = set(cities_in_partition)
         unvisited.remove(start_node)
-
         while unvisited:
             current_node = tour[-1]
             idx_current_node = node_to_index[current_node]

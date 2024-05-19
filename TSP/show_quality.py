@@ -1,7 +1,5 @@
-import random
 import time
 import math
-import os
 import numpy as np
 
 
@@ -34,7 +32,10 @@ def euclidean_distance(coord1, coord2):
     return math.sqrt((coord1[0] - coord2[0]) ** 2 + (coord1[1] - coord2[1]) ** 2)
 
 
-def generate_distance_matrix(coordinates):
+def nearest_neighbor_partitioned_tsp(coordinates):
+    start_time = time.time()
+
+    # Generate distance matrix
     num_nodes = len(coordinates)
     node_to_index = {node_id: idx for idx, node_id in enumerate(coordinates.keys())}
     distance_matrix = np.zeros((num_nodes, num_nodes))
@@ -43,13 +44,26 @@ def generate_distance_matrix(coordinates):
             idx1 = node_to_index[node_id1]
             idx2 = node_to_index[node_id2]
             distance_matrix[idx1][idx2] = euclidean_distance(coord1, coord2)
-    return distance_matrix
 
+    # Partition the space
+    min_x = min(coord[0] for coord in coordinates.values())
+    max_x = max(coord[0] for coord in coordinates.values())
+    min_y = min(coord[1] for coord in coordinates.values())
+    max_y = max(coord[1] for coord in coordinates.values())
 
-def nearest_neighbor_partitioned_tsp(
-    distance_matrix, partitions, node_to_index, start_node
-):
-    start_time = time.time()
+    mid_x = (min_x + max_x) / 2
+    mid_y = (min_y + max_y) / 2
+
+    partitions = []
+    for i in range(2):
+        for j in range(2):
+            min_x_part = min_x if i == 0 else mid_x
+            max_x_part = mid_x if i == 0 else max_x
+            min_y_part = min_y if j == 0 else mid_y
+            max_y_part = mid_y if j == 0 else max_y
+            partitions.append((min_x_part, max_x_part, min_y_part, max_y_part))
+
+    # Nearest Neighbor TSP for each partition
     full_tour = []
     total_cost = 0
 
@@ -62,7 +76,8 @@ def nearest_neighbor_partitioned_tsp(
             if min_x <= coord[0] <= max_x and min_y <= coord[1] <= max_y
         ]
 
-        tour = [start_node]  # Start with the specified start node
+        start_node = cities_in_partition[0]
+        tour = [start_node]
         unvisited = set(cities_in_partition)
         unvisited.remove(start_node)
 
@@ -81,8 +96,12 @@ def nearest_neighbor_partitioned_tsp(
                 node_to_index[nearest_neighbor]
             ]
 
-        tour.append(start_node)  # Return to the starting node
         full_tour.extend(tour)
+
+    idx_last_node = node_to_index[full_tour[-1]]
+    idx_first_node = node_to_index[full_tour[0]]
+    total_cost += distance_matrix[idx_last_node][idx_first_node]
+    full_tour.append(full_tour[0])
 
     end_time = time.time()
     execution_time = end_time - start_time
@@ -90,43 +109,10 @@ def nearest_neighbor_partitioned_tsp(
     return full_tour, total_cost, execution_time
 
 
-def partition_space(coordinates):
-    min_x = min(coord[0] for coord in coordinates.values())
-    max_x = max(coord[0] for coord in coordinates.values())
-    min_y = min(coord[1] for coord in coordinates.values())
-    max_y = max(coord[1] for coord in coordinates.values())
-
-    mid_x = (min_x + max_x) / 2
-    mid_y = (min_y + max_y) / 2
-
-    partitions = []
-    for i in range(2):
-        for j in range(2):
-            min_x_part = min_x if i == 0 else mid_x
-            max_x_part = mid_x if i == 0 else max_x
-            min_y_part = min_y if j == 0 else mid_y
-            max_y_part = mid_y if j == 0 else max_y
-            partitions.append((min_x_part, max_x_part, min_y_part, max_y_part))
-
-    return partitions
-
-
-def get_diff_result(problem, total_distance):
-    if problem == "lin105.tsp":
-        diff = ((total_distance / 14379) - 1) * 100
-        return f"{diff:.2f}%"
-    elif problem == "tsp225.tsp":
-        diff = ((total_distance / 3919) - 1) * 100
-        return f"{diff:.2f}%"
-    elif problem == "pr1002.tsp":
-        diff = ((total_distance / 259045) - 1) * 100
-        return f"{diff:.2f}%"
-    elif problem == "pr2392.tsp":
-        diff = ((total_distance / 378032) - 1) * 100
-        return f"{diff:.2f}%"
-    elif problem == "rl5934.tsp":
-        diff = ((total_distance / 556045) - 1) * 100
-        return f"{diff:.2f}%"
+def process_tsp_file(file_path):
+    tsp_name, coordinates = read_tsp_file(file_path)
+    full_tour, tour_cost, execution_time = nearest_neighbor_partitioned_tsp(coordinates)
+    return tsp_name, tour_cost, execution_time
 
 
 if __name__ == "__main__":
@@ -139,22 +125,9 @@ if __name__ == "__main__":
         "files/rl5934.tsp",
     ]
     for file_path in files:
-        tsp_name, coordinates = read_tsp_file(file_path)
-        distance_matrix = generate_distance_matrix(coordinates)
-        partitions = partition_space(coordinates)
-        node_to_index = {node_id: idx for idx, node_id in enumerate(coordinates.keys())}
-        start_node = 1  # Set the start node index here
-        full_tour, tour_cost, execution_time = nearest_neighbor_partitioned_tsp(
-            distance_matrix, partitions, node_to_index, start_node
-        )
+        tsp_name, tour_cost, execution_time = process_tsp_file(file_path)
         total_execution_time += execution_time
-        # Check if the start node needs to be added to the end of the tour
-        if full_tour[-1] != start_node:
-            full_tour.append(start_node)
-        diff_result = get_diff_result(os.path.basename(file_path), tour_cost)
         print(f"TSP Name: {tsp_name}")
-        print(f"Optimal tour: {full_tour}")
         print(f"Tour cost: {tour_cost}")
-        print(f"Difference from optimal: {diff_result}")
         print(f"Execution time: {execution_time} seconds")
     print(f"Total Execution Time: {total_execution_time} seconds")
